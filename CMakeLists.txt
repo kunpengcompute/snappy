@@ -6,6 +6,7 @@ project(Snappy VERSION 1.1.7 LANGUAGES C CXX)
 option(BUILD_SHARED_LIBS "Build shared libraries(DLLs)." OFF)
 
 option(SNAPPY_BUILD_TESTS "Build Snappy's own tests." ON)
+set(CMAKE_BUILD_TYPE Release)
 
 include(TestBigEndian)
 test_big_endian(SNAPPY_IS_BIG_ENDIAN)
