@@ -5,10 +5,10 @@ Introduction
 ============
 
 Snappy is a compression/decompression library. It does not aim for maximum
-compression, or compatibility with any other compression library; instead,
-it aims for very high speeds and reasonable compression. For instance,
-compared to the fastest mode of zlib, Snappy is an order of magnitude faster
-for most inputs, but the resulting compressed files are anywhere from 20% to
+compression, or compatibility with any other compression library; Instead,
+it aims for high speeds and reasonable compression. For instance,
+compared to the fastest mode of zlib, Snappy is much faster
+for most inputs, but the compressed files are anywhere from 20% to
 100% bigger. (For more information, see "Performance", below.)
 
 Snappy has the following properties:
@@ -77,18 +77,18 @@ Usage
 
 Note that Snappy, both the implementation and the main interface,
 is written in C++. However, several third-party bindings to other languages
-are available; see the home page at http://google.github.io/snappy/
+are available; See the home page at http://google.github.io/snappy/
 for more information. Also, if you want to use Snappy from C code, you can
 use the included C bindings in snappy-c.h.
 
 To use Snappy from your own C++ program, include the file "snappy.h" from
 your calling file, and link against the compiled library.
 
-There are many ways to call Snappy, but the simplest possible is
+There are many ways to call Snappy, one of the simplest methods is
 
   snappy::Compress(input.data(), input.size(), &output);
 
-and similarly
+or similarly
 
   snappy::Uncompress(input.data(), input.size(), &output);
 
@@ -99,7 +99,7 @@ support for custom (non-array) input sources. See the header file for more
 information.
 
 
-Tests and benchmarks
+Tests and Benchmarks
 ====================
 
 When you compile Snappy, snappy_unittest is compiled in addition to the
