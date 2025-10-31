@@ -896,10 +896,12 @@ char* CompressFragment(const char* input, size_t input_size, char* op,
         const char* base = ip;
         std::pair<size_t, bool> p =
             FindMatchLength(candidate + 4, ip + 4, ip_end, &data);
+        uint16_t* table_entry = TableEntry(table, data, mask);
         size_t matched = 4 + p.first;
         ip += matched;
         size_t offset = base - candidate;
         assert(0 == memcmp(base, candidate, matched));
+        candidate = base_ip + *table_entry;
         if (p.second) {
           op = EmitCopy</*len_less_than_12=*/true>(op, offset, matched);
         } else {
@@ -916,8 +918,8 @@ char* CompressFragment(const char* input, size_t input_size, char* op,
         // we also update table[Hash(ip - 1, mask)] and table[Hash(ip, mask)].
         *TableEntry(table, LittleEndian::Load32(ip - 1), mask) =
             ip - base_ip - 1;
-        uint16_t* table_entry = TableEntry(table, data, mask);
-        candidate = base_ip + *table_entry;
+        // uint16_t* table_entry = TableEntry(table, data, mask);
+        // candidate = base_ip + *table_entry;
         *table_entry = ip - base_ip;
         // Measurements on the benchmarks have shown the following probabilities
         // for the loop to exit (ie. avg. number of iterations is reciprocal).
