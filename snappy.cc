@@ -749,13 +749,13 @@ static inline char* EmitCopy(char* op, size_t offset, size_t len) {
     }
 
     // One or two copies will now finish the job.
-    if (SNAPPY_PREDICT_FALSE(len > 64)) {
+    if (len > 64) {
       op = EmitCopyAtMost64</*len_less_than_12=*/false>(op, offset, 60);
       len -= 60;
     }
 
     // Emit remainder.
-    if (SNAPPY_PREDICT_FALSE(len < 12)) {
+    if (len < 12) {
       op = EmitCopyAtMost64</*len_less_than_12=*/true>(op, offset, len);
     } else {
       op = EmitCopyAtMost64</*len_less_than_12=*/false>(op, offset, len);
@@ -952,12 +952,14 @@ char* CompressFragment(const char* input, size_t input_size, char* op,
         uint16_t* table_entry = TableEntry(table, data, mask);
         size_t matched = 4 + p.first;
         ip += matched;
-        SNAPPY_PREFETCH(base);
-        SNAPPY_PREFETCH(base + 64);
         size_t offset = base - candidate;
         assert(0 == memcmp(base, candidate, matched));
         candidate = base_ip + *table_entry;
-        op = p.second ? EmitCopy</*len_less_than_12=*/true>(op, offset, matched) : EmitCopy</*len_less_than_12=*/false>(op, offset, matched);
+        if (p.second) {
+          op = EmitCopy</*len_less_than_12=*/true>(op, offset, matched);
+        } else {
+          op = EmitCopy</*len_less_than_12=*/false>(op, offset, matched);
+        }
         if (SNAPPY_PREDICT_FALSE(ip >= ip_limit)) {
           goto emit_remainder;
         }
@@ -967,11 +969,11 @@ char* CompressFragment(const char* input, size_t input_size, char* op,
         // We are now looking for a 4-byte match again.  We read
         // table[Hash(ip, mask)] for that.  To improve compression,
         // we also update table[Hash(ip - 1, mask)] and table[Hash(ip, mask)].
+        *TableEntry(table, LittleEndian::Load32(ip - 1), mask) =
+            ip - base_ip - 1;
         // uint16_t* table_entry = TableEntry(table, data, mask);
         // candidate = base_ip + *table_entry;
         *table_entry = ip - base_ip;
-        *TableEntry(table, LittleEndian::Load32(ip - 1), mask) =
-+            *table_entry - 1;
         // Measurements on the benchmarks have shown the following probabilities
         // for the loop to exit (ie. avg. number of iterations is reciprocal).
         // BM_Flat/6  txt1    p = 0.3-0.4
@@ -982,7 +984,7 @@ char* CompressFragment(const char* input, size_t input_size, char* op,
         // BM_Flat/11 gaviota p = 0.1
         // BM_Flat/12 cp      p = 0.5
         // BM_Flat/13 c       p = 0.3
-      } while (SNAPPY_PREDICT_TRUE(static_cast<uint32_t>(data) == LittleEndian::Load32(candidate)));
+      } while (static_cast<uint32_t>(data) == LittleEndian::Load32(candidate));
       // Because the least significant 5 bytes matched, we can utilize data
       // for the next iteration.
       preload = data >> 8;
