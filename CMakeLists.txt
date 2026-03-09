@@ -103,6 +103,10 @@ option(SNAPPY_REQUIRE_AVX2 "Target processors with AVX2 support." OFF)
 
 option(SNAPPY_INSTALL "Install Snappy's header and library" ON)
 
+if(CMAKE_SYSTEM_PROCESSOR MATCHES "aarch64")
+  set(CMAKE_CXX_FLAGS "-march=armv8.2-a ${CMAKE_CXX_FLAGS}")
+endif(CMAKE_SYSTEM_PROCESSOR MATCHES "aarch64")
+
 include(TestBigEndian)
 test_big_endian(SNAPPY_IS_BIG_ENDIAN)
 
