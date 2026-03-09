@@ -78,6 +78,9 @@
 #include <string>
 #include <utility>
 #include <vector>
+#ifdef __aarch64__
+#include <arm_neon.h>
+#endif
 
 namespace snappy {
 
@@ -99,6 +102,56 @@ using internal::V128_LoadU;
 using internal::V128_Shuffle;
 using internal::V128_StoreU;
 using internal::V128_DupChar;
+#endif
+
+// GCC dispatches to libc for memmoves > 16 bytes, so we need to
+// do some work to get good code from that compiler. Clang handles
+// powers-of-2 at least up to 64 well.
+#if !defined(__GNUC__) || defined(__clang__)
+  template <size_t SIZE>
+  SNAPPY_ATTRIBUTE_ALWAYS_INLINE
+  inline void FixedSizeMemMove(void* dest, const void* src) {
+    memmove(dest, src, SIZE);
+  }
+#else
+  template <size_t SIZE>
+  SNAPPY_ATTRIBUTE_ALWAYS_INLINE
+  inline void FixedSizeMemMove(void* dest, const void* src) {
+    if (SIZE <= 16) {
+      // gcc has patterns for memmove up to 16 bytes
+      memmove(dest, src, SIZE);
+    } else {
+      // This generates reasonable code on x86_64, but on aarch64 this produces a
+      // dead store to tmp, plus takes up stack space.
+      char tmp[SIZE];
+      memcpy(tmp, src, SIZE);
+      memcpy(dest, tmp, SIZE);
+    }
+  }
+
+  #ifdef __aarch64__ // Implies neon support
+    template <>
+    SNAPPY_ATTRIBUTE_ALWAYS_INLINE
+    inline void FixedSizeMemMove<32>(void* dest, const void* src) {
+      V128 a = V128_LoadU(reinterpret_cast<const V128*>(src));
+      V128 b = V128_LoadU(reinterpret_cast<const V128*>(src) + 1);
+      V128_StoreU(reinterpret_cast<V128*>(dest), a);
+      V128_StoreU(reinterpret_cast<V128*>(dest) + 1, b);
+    }
+
+    template <>
+    SNAPPY_ATTRIBUTE_ALWAYS_INLINE
+    inline void FixedSizeMemMove<64>(void* dest, const void* src) {
+      V128 a = V128_LoadU(reinterpret_cast<const V128*>(src));
+      V128 b = V128_LoadU(reinterpret_cast<const V128*>(src) + 1);
+      V128 c = V128_LoadU(reinterpret_cast<const V128*>(src) + 2);
+      V128 d = V128_LoadU(reinterpret_cast<const V128*>(src) + 3);
+      V128_StoreU(reinterpret_cast<V128*>(dest), a);
+      V128_StoreU(reinterpret_cast<V128*>(dest) + 1, b);
+      V128_StoreU(reinterpret_cast<V128*>(dest) + 2, c);
+      V128_StoreU(reinterpret_cast<V128*>(dest) + 3, d);
+    }
+  #endif
 #endif
 
 // We translate the information encoded in a tag through a lookup table to a
@@ -907,10 +960,12 @@ char* CompressFragment(const char* input, size_t input_size, char* op,
         const char* base = ip;
         std::pair<size_t, bool> p =
             FindMatchLength(candidate + 4, ip + 4, ip_end, &data);
+        uint16_t* table_entry = TableEntry(table, data, mask);
         size_t matched = 4 + p.first;
         ip += matched;
         size_t offset = base - candidate;
         assert(0 == memcmp(base, candidate, matched));
+        candidate = base_ip + *table_entry;
         if (p.second) {
           op = EmitCopy</*len_less_than_12=*/true>(op, offset, matched);
         } else {
@@ -927,8 +982,8 @@ char* CompressFragment(const char* input, size_t input_size, char* op,
         // we also update table[Hash(ip - 1, mask)] and table[Hash(ip, mask)].
         *TableEntry(table, LittleEndian::Load32(ip - 1), mask) =
             ip - base_ip - 1;
-        uint16_t* table_entry = TableEntry(table, data, mask);
-        candidate = base_ip + *table_entry;
+        // uint16_t* table_entry = TableEntry(table, data, mask);
+        // candidate = base_ip + *table_entry;
         *table_entry = ip - base_ip;
         // Measurements on the benchmarks have shown the following probabilities
         // for the loop to exit (ie. avg. number of iterations is reciprocal).
@@ -1245,6 +1300,11 @@ void MemCopy64(char* dst, const void* src, size_t size) {
     data = _mm256_lddqu_si256(static_cast<const __m256i *>(src) + 1);
     _mm256_storeu_si256(reinterpret_cast<__m256i *>(dst) + 1, data);
   }
+#elif defined(__aarch64__)
+  // Emperically it is faster to just copy all 64 rather than branching.
+  (void)kShortMemCopy;
+  (void)size;
+  FixedSizeMemMove<64>(dst, src);
 #else
   std::memmove(dst, src, kShortMemCopy);
   // Profiling shows that nearly all copies are short.
@@ -2206,7 +2266,11 @@ class SnappyArrayWriter {
       *op_p = IncrementalCopy(op - offset, op, op_end, op_limit_);
       return true;
     }
+#ifdef __aarch64__
+    FixedSizeMemMove<kSlopBytes>(op, op - offset);
+#else
     std::memmove(op, op - offset, kSlopBytes);
+#endif
     *op_p = op_end;
     return true;
   }
@@ -2459,7 +2523,11 @@ class SnappyScatteredWriter {
     }
     // Fast path
     char* const op_end = op + len;
+#ifdef __aarch64__
+    FixedSizeMemMove<kSlopBytes>(op, op - offset);
+#else
     std::memmove(op, op - offset, kSlopBytes);
+#endif
     *op_p = op_end;
     return true;
   }
