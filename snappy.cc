@@ -154,7 +154,7 @@ using internal::V128_DupChar;
     }
   #endif
 #endif
-  
+
 
 // We translate the information encoded in a tag through a lookup table to a
 // format that requires fewer instructions to decode. Effectively we store
@@ -1005,7 +1005,7 @@ char* CompressFragment(const char* input, size_t input_size, char* op,
         // We are now looking for a 4-byte match again.  We read
         // table[Hash(ip, mask)] for that.  To improve compression,
         // we also update table[Hash(ip - 1, mask)] and table[Hash(ip, mask)].
-        
+
         *TableEntry(table, LittleEndian::Load32(ip - 1), mask) =
             ip - base_ip - 1;
         *TableEntry(table, LittleEndian::Load32(ip - 2), mask) =
