@@ -250,7 +250,7 @@ namespace snappy {
   static constexpr int kMinHashTableBits = 8;
   static constexpr size_t kMinHashTableSize = 1 << kMinHashTableBits;
 
-  static constexpr int kMaxHashTableBits = 15;
+  static constexpr int kMaxHashTableBits = 14;
   static constexpr size_t kMaxHashTableSize = 1 << kMaxHashTableBits;
 }  // end namespace snappy
 

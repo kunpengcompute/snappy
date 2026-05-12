@@ -67,12 +67,12 @@ ByteArraySource::~ByteArraySource() = default;
 
 size_t ByteArraySource::Available() const { return left_; }
 
-const char* ByteArraySource::Peek(size_t* len) {
+inline const char* ByteArraySource::Peek(size_t* len) {
   *len = left_;
   return ptr_;
 }
 
-void ByteArraySource::Skip(size_t n) {
+inline void ByteArraySource::Skip(size_t n) {
   left_ -= n;
   ptr_ += n;
 }

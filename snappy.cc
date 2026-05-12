@@ -79,6 +79,9 @@
 #include <string>
 #include <utility>
 #include <vector>
+#ifdef __aarch64__
+  #include <arm_neon.h>
+#endif
 
 namespace snappy {
 
@@ -101,6 +104,57 @@ using internal::V128_Shuffle;
 using internal::V128_StoreU;
 using internal::V128_DupChar;
 #endif
+
+// GCC dispatches to libc for memmoves > 16 bytes, so we need to
+// do some work to get good code from that compiler. Clang handles
+// powers-of-2 at least up to 64 well.
+#if !defined(__GNUC__) || defined(__clang__)
+  template <size_t SIZE>
+  SNAPPY_ATTRIBUTE_ALWAYS_INLINE
+  inline void FixedSizeMemMove(void* dest, const void* src) {
+    memmove(dest, src, SIZE);
+  }
+#else
+  template <size_t SIZE>
+  SNAPPY_ATTRIBUTE_ALWAYS_INLINE
+  inline void FixedSizeMemMove(void* dest, const void* src) {
+    if (SIZE <= 16) {
+      // gcc has patterns for memmove up to 16 bytes
+      memmove(dest, src, SIZE);
+    } else {
+      // This generates reasonable code on x86_64, but on aarch64 this produces a
+      // dead store to tmp, plus takes up stack space.
+      char tmp[SIZE];
+      memcpy(tmp, src, SIZE);
+      memcpy(dest, tmp, SIZE);
+    }
+  }
+
+  #ifdef __aarch64__ // Implies neon support
+    template <>
+    SNAPPY_ATTRIBUTE_ALWAYS_INLINE
+    inline void FixedSizeMemMove<32>(void* dest, const void* src) {
+      V128 a = V128_LoadU(reinterpret_cast<const V128*>(src));
+      V128 b = V128_LoadU(reinterpret_cast<const V128*>(src) + 1);
+      V128_StoreU(reinterpret_cast<V128*>(dest), a);
+      V128_StoreU(reinterpret_cast<V128*>(dest) + 1, b);
+    }
+
+    template <>
+    SNAPPY_ATTRIBUTE_ALWAYS_INLINE
+    inline void FixedSizeMemMove<64>(void* dest, const void* src) {
+      V128 a = V128_LoadU(reinterpret_cast<const V128*>(src));
+      V128 b = V128_LoadU(reinterpret_cast<const V128*>(src) + 1);
+      V128 c = V128_LoadU(reinterpret_cast<const V128*>(src) + 2);
+      V128 d = V128_LoadU(reinterpret_cast<const V128*>(src) + 3);
+      V128_StoreU(reinterpret_cast<V128*>(dest), a);
+      V128_StoreU(reinterpret_cast<V128*>(dest) + 1, b);
+      V128_StoreU(reinterpret_cast<V128*>(dest) + 2, c);
+      V128_StoreU(reinterpret_cast<V128*>(dest) + 3, d);
+    }
+  #endif
+#endif
+
 
 // We translate the information encoded in a tag through a lookup table to a
 // format that requires fewer instructions to decode. Effectively we store
@@ -152,6 +206,7 @@ alignas(64) const std::array<int16_t, 256> kLengthMinusOffset =
 // better compression for compressible input.
 //
 // REQUIRES: mask is 2 * (table_size - 1), and table_size is a power of two.
+SNAPPY_ATTRIBUTE_ALWAYS_INLINE
 inline uint16_t* TableEntry(uint16_t* table, uint32_t bytes, uint32_t mask) {
   // Our choice is quicker-and-dirtier than the typical hash function;
   // empirically, that seems beneficial.  The upper bits of kMagic * bytes are a
@@ -226,7 +281,7 @@ void UnalignedCopy64(const void* src, void* dst) {
   std::memcpy(dst, tmp, 8);
 }
 
-void UnalignedCopy128(const void* src, void* dst) {
+inline void UnalignedCopy128(const void* src, void* dst) {
   // std::memcpy() gets vectorized when the appropriate compiler options are
   // used. For example, x86 compilers targeting SSE2+ will optimize to an SSE2
   // load and store.
@@ -679,7 +734,20 @@ static inline char* EmitCopyAtMost64(char* op, size_t offset, size_t len) {
     // benchmarks. This code produces branch free code, the data dependency
     // chain that bottlenecks the throughput is so long that a few extra
     // instructions are completely free (IPC << 6 because of data deps).
+
+#if defined(__GNUC__) && defined(__aarch64__)  // ARM64 架构判定
+    uint32_t temp;
+    __asm__ __volatile__(
+      "cmp %w1, #2048\n\t"
+      "csel %w0, %w2, %w3, lo\n\t"
+      : "=&r"(temp)
+      : "r"(offset), "r"(copy1), "r"(copy2)
+      : "cc"
+    );
+    u += temp;
+#else
     u += offset < 2048 ? copy1 : copy2;
+#endif
     LittleEndian::Store32(op, u);
     op += offset < 2048 ? 2 : 3;
   } else {
@@ -832,20 +900,28 @@ char* CompressFragment(const char* input, size_t input_size, char* op,
       // The "skip" variable keeps track of how many bytes there are since the
       // last match; dividing it by 32 (ie. right-shifting by five) gives the
       // number of bytes to move ahead for each iteration.
-      uint32_t skip = 32;
+      uint32_t skip = 64;
 
       const char* candidate;
       if (ip_limit - ip >= 16) {
         auto delta = ip - base_ip;
+        uint32_t next_dword = preload;
+        uint16_t* next_table_entry = TableEntry(table, next_dword, mask);
         for (int j = 0; j < 4; ++j) {
           for (int k = 0; k < 4; ++k) {
+            if (k == 3) {
+              data = LittleEndian::Load64(ip + 4 * j + 4);
+            } else {
+              data >>= 8;
+            }
             int i = 4 * j + k;
             // These for-loops are meant to be unrolled. So we can freely
             // special case the first iteration to use the value already
             // loaded in preload.
-            uint32_t dword = i == 0 ? preload : static_cast<uint32_t>(data);
-            assert(dword == LittleEndian::Load32(ip + i));
-            uint16_t* table_entry = TableEntry(table, dword, mask);
+            uint32_t dword = next_dword;
+            next_dword = static_cast<uint32_t>(data);
+            uint16_t* table_entry = next_table_entry;
+            next_table_entry = TableEntry(table, next_dword, mask);
             candidate = base_ip + *table_entry;
             assert(candidate >= base_ip);
             assert(candidate < ip + i);
@@ -855,11 +931,10 @@ char* CompressFragment(const char* input, size_t input_size, char* op,
               UnalignedCopy128(next_emit, op + 1);
               ip += i;
               op = op + i + 2;
+              *next_table_entry = delta + i + 1;
               goto emit_match;
             }
-            data >>= 8;
           }
-          data = LittleEndian::Load64(ip + 4 * j + 4);
         }
         ip += 16;
         skip += 16;
@@ -875,6 +950,7 @@ char* CompressFragment(const char* input, size_t input_size, char* op,
           goto emit_remainder;
         }
         candidate = base_ip + *table_entry;
+        SNAPPY_PREFETCH(candidate);
         assert(candidate >= base_ip);
         assert(candidate < ip);
 
@@ -908,10 +984,13 @@ char* CompressFragment(const char* input, size_t input_size, char* op,
         const char* base = ip;
         std::pair<size_t, bool> p =
             FindMatchLength(candidate + 4, ip + 4, ip_end, &data);
+        uint16_t* table_entry = TableEntry(table, data, mask);
         size_t matched = 4 + p.first;
         ip += matched;
         size_t offset = base - candidate;
         assert(0 == memcmp(base, candidate, matched));
+        candidate = base_ip + *table_entry;
+        SNAPPY_PREFETCH(candidate);
         if (p.second) {
           op = EmitCopy</*len_less_than_12=*/true>(op, offset, matched);
         } else {
@@ -926,10 +1005,13 @@ char* CompressFragment(const char* input, size_t input_size, char* op,
         // We are now looking for a 4-byte match again.  We read
         // table[Hash(ip, mask)] for that.  To improve compression,
         // we also update table[Hash(ip - 1, mask)] and table[Hash(ip, mask)].
+
         *TableEntry(table, LittleEndian::Load32(ip - 1), mask) =
             ip - base_ip - 1;
-        uint16_t* table_entry = TableEntry(table, data, mask);
-        candidate = base_ip + *table_entry;
+        *TableEntry(table, LittleEndian::Load32(ip - 2), mask) =
+            ip - base_ip - 2;
+        //uint16_t* table_entry = TableEntry(table, data, mask);
+        //candidate = base_ip + *table_entry;
         *table_entry = ip - base_ip;
         // Measurements on the benchmarks have shown the following probabilities
         // for the loop to exit (ie. avg. number of iterations is reciprocal).
@@ -1246,6 +1328,11 @@ void MemCopy64(char* dst, const void* src, size_t size) {
     data = _mm256_lddqu_si256(static_cast<const __m256i *>(src) + 1);
     _mm256_storeu_si256(reinterpret_cast<__m256i *>(dst) + 1, data);
   }
+#elif defined(__aarch64__)
+    // Emperically it is faster to just copy all 64 rather than branching.
+    (void)kShortMemCopy;
+    (void)size;
+    FixedSizeMemMove<64>(dst, src);
 #else
   std::memmove(dst, src, kShortMemCopy);
   // Profiling shows that nearly all copies are short.
@@ -1257,20 +1344,20 @@ void MemCopy64(char* dst, const void* src, size_t size) {
 #endif
 }
 
-void MemCopy64(ptrdiff_t dst, const void* src, size_t size) {
+inline void MemCopy64(ptrdiff_t dst, const void* src, size_t size) {
   // TODO: Switch to [[maybe_unused]] when we can assume C++17.
   (void)dst;
   (void)src;
   (void)size;
 }
 
-void ClearDeferred(const void** deferred_src, size_t* deferred_length,
+inline void ClearDeferred(const void** deferred_src, size_t* deferred_length,
                    uint8_t* safe_source) {
   *deferred_src = safe_source;
   *deferred_length = 0;
 }
 
-void DeferMemCopy(const void** deferred_src, size_t* deferred_length,
+inline void DeferMemCopy(const void** deferred_src, size_t* deferred_length,
                   const void* src, size_t length) {
   *deferred_src = src;
   *deferred_length = length;
@@ -1279,23 +1366,11 @@ void DeferMemCopy(const void** deferred_src, size_t* deferred_length,
 SNAPPY_ATTRIBUTE_ALWAYS_INLINE
 inline size_t AdvanceToNextTagARMOptimized(const uint8_t** ip_p, size_t* tag) {
   const uint8_t*& ip = *ip_p;
-  // This section is crucial for the throughput of the decompression loop.
-  // The latency of an iteration is fundamentally constrained by the
-  // following data chain on ip.
-  // ip -> c = Load(ip) -> delta1 = (c & 3)        -> ip += delta1 or delta2
-  //                       delta2 = ((c >> 2) + 1)    ip++
-  // This is different from X86 optimizations because ARM has conditional add
-  // instruction (csinc) and it removes several register moves.
-  const size_t tag_type = *tag & 3;
-  const bool is_literal = (tag_type == 0);
-  if (is_literal) {
-    size_t next_literal_tag = (*tag >> 2) + 1;
-    *tag = ip[next_literal_tag];
-    ip += next_literal_tag + 1;
-  } else {
-    *tag = ip[tag_type];
-    ip += tag_type + 1;
-  }
+  const size_t current_tag = *tag;
+  const size_t tag_type = current_tag & 3;
+  const size_t offset = (tag_type == 0) ? ((current_tag >> 2) + 1) : tag_type;
+  *tag = ip[offset];
+  ip += offset + 1;
   return tag_type;
 }
 
@@ -1510,7 +1585,7 @@ class SnappyDecompressor {
   // Returns true on success, false on error or end of input.
   bool RefillTag();
 
-  void ResetLimit(const char* ip) {
+  inline void ResetLimit(const char* ip) {
     ip_limit_min_maxtaglen_ =
         ip_limit_ - std::min<ptrdiff_t>(ip_limit_ - ip, kMaximumTagLength - 1);
   }
@@ -1681,7 +1756,7 @@ class SnappyDecompressor {
   }
 };
 
-constexpr uint32_t CalculateNeeded(uint8_t tag) {
+inline constexpr uint32_t CalculateNeeded(uint8_t tag) {
   return ((tag & 3) == 0 && tag >= (60 * 4))
              ? (tag >> 2) - 58
              : (0x05030201 >> ((tag * 8) & 31)) & 0xFF;
@@ -1701,7 +1776,7 @@ constexpr bool VerifyCalculateNeeded() {
 static_assert(VerifyCalculateNeeded(), "");
 #endif  // c++14
 
-bool SnappyDecompressor::RefillTag() {
+inline bool SnappyDecompressor::RefillTag() {
   const char* ip = ip_;
   if (ip == ip_limit_) {
     // Fetch a new fragment from the reader
@@ -2213,7 +2288,11 @@ class SnappyArrayWriter {
       *op_p = IncrementalCopy(op - offset, op, op_end, op_limit_);
       return true;
     }
+#ifdef __aarch64__
+    FixedSizeMemMove<kSlopBytes>(op, op - offset);
+#else
     std::memmove(op, op - offset, kSlopBytes);
+#endif
     *op_p = op_end;
     return true;
   }
@@ -2488,7 +2567,11 @@ class SnappyScatteredWriter {
     }
     // Fast path
     char* const op_end = op + len;
+#ifdef __aarch64__
+    FixedSizeMemMove<kSlopBytes>(op, op - offset);
+#else
     std::memmove(op, op - offset, kSlopBytes);
+#endif
     *op_p = op_end;
     return true;
   }
@@ -2646,3 +2729,4 @@ bool Uncompress(Source* compressed, Sink* uncompressed) {
 }
 
 }  // namespace snappy
+
