@@ -1,8 +1,8 @@
-# snappy介绍
+# Snappy介绍
 
 ## 最新消息
 
-- [2026-05-06]：基于1.2.2分支`dev-1.2.2`发布优化版本v1.0.0，支持ARM64架构的性能优化。
+- [2026.06.30]：基于Snappy 1.2.2分支针对ARM64架构发布优化版本v1.0.0，支持ARM64架构的性能优化。
 
 ## 项目介绍
 
@@ -19,7 +19,7 @@ snappy/
 ├── docs/                           # 文档目录
 │   ├── LICENSE                     # 文档许可证（CC-BY 4.0）
 │   └── zh/                         # 中文文档
-│       ├── api_reference.md        # API参考文档
+│       ├── api_reference.md        # API参考
 │       ├── installation_guide.md   # 安装指南
 │       ├── quick_start.md          # 快速入门文档
 │       ├── release_notes.md        # 版本说明书
@@ -35,16 +35,16 @@ snappy/
 
 ## 快速上手
 
-snappy安装和使能的详细步骤，请参见《[快速入门](docs/zh/quick_start.md)》。
+基于开源Snappy优化的鲲鹏Snappy的安装和使能的详细步骤，请参见《[快速入门](docs/zh/quick_start.md)》。
 
 ## 文档
 
 | 资源名称 | 资源简介 |
 | --------- | --------- |
-| [安装指南](./docs/zh/installation_guide.md) | 提供snappy编译安装的详细步骤指导。 |
-| [快速入门](./docs/zh/quick_start.md) | 提供snappy安装和使能的快速入门指导。 |
-| [版本说明书](./docs/zh/release_notes.md) | 提供snappy发布版本的基础信息和特性更新信息。 |
-| [API参考](./docs/zh/api_reference.md) | 提供接口说明、接口调用示例等。 |
+| [安装指南](./docs/zh/installation_guide.md) | 提供针对ARM64架构优化的Snappy的编译安装详细步骤指导。 |
+| [快速入门](./docs/zh/quick_start.md) | 提供针对ARM64架构优化的Snappy的安装和使能快速入门指导。 |
+| [版本说明书](./docs/zh/release_notes.md) | 提供针对ARM64架构优化的Snappy的发布版本的基础信息和特性更新信息。 |
+| [API参考](./docs/zh/api_reference.md) | 提供针对ARM64架构优化的Snappy的接口说明、接口调用示例等。 |
 
 ## 免责声明
 

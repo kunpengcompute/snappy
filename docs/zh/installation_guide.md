@@ -7,11 +7,13 @@
 | 软件 | 版本要求 | 说明 |
 | ------ | ---------- | ------ |
 | 操作系统 | openEuler 22.03 LTS SP3 / 24.03 | Linux发行版 |
-| 编译器 | GCC 10.3.1+ | 支持C++11标准，ARM64需支持NEON |
-| CMake | 3.10或更高版本 | 构建工具 |
-| Git | 2.0或更高版本 | 版本控制 |
+| 编译器 | GCC 10.3.1版本及以上 | 支持C++11标准，ARM64需支持NEON |
+| CMake | 3.10版本及以上 | 构建工具 |
+| Git | 2.0版本及以上 | 版本控制 |
 
-## 获取代码
+## 编译安装
+
+### 获取代码
 
 运行以下命令获取代码。
 
@@ -20,7 +22,7 @@ git clone https://gitcode.com/boostkit/snappy.git -b dev-1.2.2
 cd snappy
 ```
 
-如果获取代码时未使用 `git clone --recursive` 拉取依赖，则需要手动初始化子模块。
+如果获取代码时未使用`git clone --recursive`拉取依赖，则需要手动初始化子模块。
 
 - 方法一：使用git子模块（推荐）
 
@@ -41,7 +43,7 @@ cd snappy
 
 > **说明：** `dev-1.2.2`分支已包含ARM64优化代码，无需手动应用补丁。补丁文件 `snappy-1.2.2-opt.patch` 仅供参考对比。
 
-## 编译安装
+### 安装步骤
 
 1. 创建自定义安装目录（可根据实际需求修改路径）。
 
@@ -55,22 +57,28 @@ cd snappy
    ```bash
    mkdir build
    cd build
-
-   # 优化版配置（默认：共享库ON，测试OFF，基准OFF）
-   cmake -DCMAKE_BUILD_TYPE=Release \
-         -DCMAKE_CXX_FLAGS="-O3" \
-         -DCMAKE_INSTALL_PREFIX=${SNAPPY_INSTALL_DIR} \
-         ..
-
-   # 如果需要编译测试和基准（开发调试场景）
-   cmake -DBUILD_SHARED_LIBS=ON \
-         -DSNAPPY_BUILD_TESTS=ON \
-         -DSNAPPY_BUILD_BENCHMARKS=ON \
-         -DCMAKE_BUILD_TYPE=Release \
-         -DCMAKE_CXX_FLAGS="-O3" \
-         -DCMAKE_INSTALL_PREFIX=${SNAPPY_INSTALL_DIR} \
-         ..
    ```
+
+   * 优化版配置（默认：共享库ON，测试OFF，基准OFF）
+
+     ```bash
+     cmake -DCMAKE_BUILD_TYPE=Release \
+           -DCMAKE_CXX_FLAGS="-O3" \
+           -DCMAKE_INSTALL_PREFIX=${SNAPPY_INSTALL_DIR} \
+           ..
+     ```
+
+   * 如果需要编译测试和基准（开发调试场景）
+
+     ```bash
+     cmake -DBUILD_SHARED_LIBS=ON \
+           -DSNAPPY_BUILD_TESTS=ON \
+           -DSNAPPY_BUILD_BENCHMARKS=ON \
+           -DCMAKE_BUILD_TYPE=Release \
+           -DCMAKE_CXX_FLAGS="-O3" \
+           -DCMAKE_INSTALL_PREFIX=${SNAPPY_INSTALL_DIR} \
+           ..
+     ```
 
 3. 编译。
 
@@ -124,7 +132,7 @@ cd snappy
 
 ## 编译选项说明
 
-### CMake 常用选项
+**CMake常用选项**
 
 | 选项 | 默认值 | 说明 |
 | ------ | -------- | ------ |
@@ -135,7 +143,7 @@ cd snappy
 | `-DCMAKE_BUILD_TYPE` | Release | 构建类型（Release/Debug） |
 | `-DCMAKE_CXX_FLAGS` | - | 额外编译标志（推荐-O3） |
 
-### 性能优化编译标志
+**性能优化编译标志**
 
 针对ARM架构（鲲鹏等处理器）的推荐编译标志。
 
@@ -149,7 +157,7 @@ cmake -DCMAKE_CXX_FLAGS="-O3 -march=armv8-a+simd+crc -flto=thin" \
       ..
 ```
 
-> **说明：** `-march=armv8-a+simd+crc` 确保NEON SIMD和CRC指令可用，这是ARM64优化的关键依赖。
+> **说明：** `-march=armv8-a+simd+crc`确保NEON SIMD和CRC指令可用，是ARM64优化的关键依赖。
 
 ## 运行测试
 
@@ -189,9 +197,11 @@ cmake -DCMAKE_CXX_FLAGS="-O3 -march=armv8-a+simd+crc -flto=thin" \
 
 ## 常见问题
 
-### Q1: 如何确认获取的是优化版本？
+### 问题一：如何确认获取的是优化版本？
 
-**A**: 使用以下命令确认分支和关键优化内容：
+**Q**：如何确认获取的是优化版本？
+
+**A**：使用以下命令确认分支和关键优化内容。
 
 ```bash
 cd snappy
@@ -199,17 +209,21 @@ git branch  # 应显示 * dev-1.2.2
 grep -n "SNAPPY_PREFETCH" snappy.cc  # 应有匹配结果，表示NEON优化已包含
 ```
 
-### Q2: 编译时找不到snappy.h怎么办？
+### 问题二：编译时找不到snappy.h怎么办？
 
-**A**: 确保头文件路径正确：
+**Q**：编译时找不到snappy.h怎么办？
+
+**A**: 确保头文件路径正确。
 
 ```bash
 g++ -I./ test.cpp -L./build -lsnappy -o test
 ```
 
-### Q3: 运行时找不到libsnappy.so怎么办？
+### 问题三：运行时找不到libsnappy.so怎么办？
 
-**A**: 设置动态库路径：
+**Q**：运行时找不到libsnappy.so怎么办？
+
+**A**: 设置动态库路径。
 
 ```bash
 export LD_LIBRARY_PATH=${SNAPPY_INSTALL_DIR}/lib:$LD_LIBRARY_PATH
@@ -217,13 +231,16 @@ export LD_LIBRARY_PATH=${SNAPPY_INSTALL_DIR}/lib:$LD_LIBRARY_PATH
 ldconfig  # 如果已安装到系统
 ```
 
-### Q4: ARM64平台编译报NEON相关错误怎么办？
+### 问题四：ARM64平台编译报NEON相关错误怎么办？
 
-**A**: 确认编译器支持NEON指令集：
+**Q**：ARM64平台编译报NEON相关错误怎么办？
+
+**A**: 确认编译器支持NEON指令集。
 
 ```bash
 gcc -dM -E - < /dev/null | grep NEON
-# 应输出: #define __ARM_NEON 1
 ```
+
+应输出: `#define __ARM_NEON 1`。
 
 如果输出为空，说明编译器或目标架构不支持NEON，需要使用支持NEON的ARM64工具链。

@@ -18,14 +18,14 @@
 - NEON SIMD指令优化，提升数据处理速度。
 - 缓存预取优化，减少内存访问延迟。
 
-1. 获取snappy源码（dev-1.2.2分支已包含优化代码）。
+获取Snappy源码（dev-1.2.2分支已包含优化代码）。
 
    ```bash
    git clone https://gitcode.com/boostkit/snappy.git -b dev-1.2.2
    cd snappy
    ```
 
-   获取后的目录结构：
+获取后的目录结构：
 
    ```text
    snappy/
@@ -57,7 +57,7 @@
 
 ## 使用示例（使用lzbench进行性能测试）
 
-snappy是动态链接库，编译产物在`build`文件夹下。
+Snappy是动态链接库，编译产物在`build`文件夹下。
 
 1. 编译snappy优化版本。
 
@@ -70,13 +70,17 @@ snappy是动态链接库，编译产物在`build`文件夹下。
 
 2. 使用lzbench进行性能测试。
 
-   ```bash
-   # 设置动态库路径
-   export LD_LIBRARY_PATH=./build:$LD_LIBRARY_PATH
-   
-   # 运行测试（4KB块大小，压缩10秒，解压1秒）
-   lzbench -esnappy -b4 -t20u20 silesia.tar
-   ```
+   1. 设置动态库路径。
+
+      ```bash
+      export LD_LIBRARY_PATH=./build:$LD_LIBRARY_PATH
+      ```
+
+   2. 运行测试（4KB块大小，压缩10秒，解压1秒）。
+
+      ```bash
+      lzbench -esnappy -b4 -t20u20 silesia.tar
+      ```
 
    测试结果示例：
 
@@ -87,7 +91,7 @@ snappy是动态链接库，编译产物在`build`文件夹下。
 
 ## 使用示例（包含头文件使能方法示例）
 
-### 基本压缩/解压缩样例
+本节提供基本压缩、解压缩使用样例。
 
 1. 编辑样例代码如下。
 
@@ -141,9 +145,9 @@ snappy是动态链接库，编译产物在`build`文件夹下。
 
 ## 验证优化效果
 
-可以使用lzbench工具对比原版和优化版本的性能：
+可以使用lzbench工具对比原版和优化版本的性能。
 
-1. 编译原版snappy。
+1. 编译原版Snappy。
 
    ```bash
    git clone https://github.com/google/snappy.git snappy-original
@@ -153,7 +157,7 @@ snappy是动态链接库，编译产物在`build`文件夹下。
    make -j
    ```
 
-2. 编译优化版snappy。
+2. 编译优化版Snappy。
 
    ```bash
    cd ../snappy
@@ -164,16 +168,20 @@ snappy是动态链接库，编译产物在`build`文件夹下。
 
 3. 对比性能。
 
-   ```bash
-   # 测试原版
-   export LD_LIBRARY_PATH=./snappy-original/build:$LD_LIBRARY_PATH
-   lzbench -esnappy -b4 -t10u1 test_data.tar
-   
-   # 测试优化版
-   export LD_LIBRARY_PATH=./snappy/build:$LD_LIBRARY_PATH
-   lzbench -esnappy -b4 -t20u20 silesia.tar
-   ```
+   - 测试原版
+
+     ```bash
+     export LD_LIBRARY_PATH=./snappy-original/build:$LD_LIBRARY_PATH
+     lzbench -esnappy -b4 -t10u1 test_data.tar
+     ```
+
+   - 测试优化版
+
+     ```bash
+     export LD_LIBRARY_PATH=./snappy/build:$LD_LIBRARY_PATH
+     lzbench -esnappy -b4 -t20u20 silesia.tar
+     ```
 
 ## 常见问题
 
-常见问题解答请参见《[安装指南](installation_guide.md)》中的"常见问题"章节，包括确认优化版本、编译找不到snappy.h、运行时找不到libsnappy.so等问题的解决方法。
+常见问题解答请参见《[安装指南](installation_guide.md#常见问题)》中的"常见问题"章节，包括确认优化版本、编译找不到snappy.h、运行时找不到libsnappy.so等问题的解决方法。
