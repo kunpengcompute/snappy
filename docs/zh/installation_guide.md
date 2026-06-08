@@ -6,7 +6,7 @@
 
 | 软件 | 版本要求 | 说明 |
 | ------ | ---------- | ------ |
-| 操作系统 | openEuler 22.03 LTS SP3 / 24.03 | Linux发行版 |
+| 操作系统 | openEuler 24.03 / openEuler 22.03 / Debian 12 | Linux发行版 |
 | 编译器 | GCC 10.3.1版本及以上 | 支持C++11标准，ARM64需支持NEON |
 | CMake | 3.10版本及以上 | 构建工具 |
 | Git | 2.0版本及以上 | 版本控制 |
@@ -15,14 +15,37 @@
 
 ### 获取代码
 
-运行以下命令获取代码。
+可通过以下两种方式获取优化版Snappy源码。
+
+#### 方式一：直接获取优化版源码（dev-1.2.2分支）
+
+`dev-1.2.2`分支已包含优化代码，无需手动应用补丁。
 
 ```bash
 git clone https://gitcode.com/boostkit/snappy.git -b dev-1.2.2
 cd snappy
 ```
 
-如果获取代码时未使用`git clone --recursive`拉取依赖，则需要手动初始化子模块。
+#### 方式二：拉取Snappy原版源码并应用补丁（master分支）
+
+`master`分支仅包含文档和补丁文件，需先拉取Snappy原版源码，再应用补丁。
+
+```bash
+# 1. 拉取Snappy原版源码（1.2.2分支）
+git clone https://github.com/google/snappy.git
+cd snappy
+git checkout -b dev-1.2.2
+
+# 2. 获取优化补丁
+git clone https://gitcode.com/boostkit/snappy.git snappy-patch -b master
+
+# 3. 应用补丁
+git apply snappy-patch/snappy-1.2.2-opt.patch
+```
+
+> **说明：** `dev-1.2.2`分支已包含ARM64优化代码，推荐使用方式一。补丁文件 `snappy-1.2.2-opt.patch` 仅供参考对比。
+
+无论使用哪种方式，如果获取代码时未使用`git clone --recursive`拉取依赖，则需要手动初始化子模块。
 
 - 方法一：使用git子模块（推荐）
 

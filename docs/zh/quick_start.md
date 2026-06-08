@@ -4,7 +4,7 @@
 
 - 已验证的硬件配置：ARM64处理器（aarch64），支持NEON SIMD指令集
 
-- 已验证的OS：openEuler 24.03、openEuler 22.03 LTS SP3、Debian 12
+- 已验证的OS：openEuler 24.03、openEuler 22.03、Debian 12
 
 - 已验证的编译器：GCC 10.3.1
 
@@ -18,14 +18,35 @@
 - NEON SIMD指令优化，提升数据处理速度。
 - 缓存预取优化，减少内存访问延迟。
 
-获取Snappy源码（dev-1.2.2分支已包含优化代码）。
+可通过以下两种方式获取优化版Snappy源码。
+
+### 方式一：直接获取优化版源码（dev-1.2.2分支）
+
+`dev-1.2.2`分支已包含优化代码，无需手动应用补丁。
 
    ```bash
    git clone https://gitcode.com/boostkit/snappy.git -b dev-1.2.2
    cd snappy
    ```
 
-获取后的目录结构：
+### 方式二：拉取Snappy原版源码并应用补丁（master分支）
+
+`master`分支仅包含文档和补丁文件，需先拉取Snappy原版源码，再应用补丁。
+
+   ```bash
+   # 1. 拉取Snappy原版源码（1.2.2分支）
+   git clone https://github.com/google/snappy.git
+   cd snappy
+   git checkout -b dev-1.2.2
+   
+   # 2. 获取优化补丁
+   git clone https://gitcode.com/boostkit/snappy.git snappy-patch -b master
+   
+   # 3. 应用补丁
+   git apply snappy-patch/snappy-1.2.2-opt.patch
+   ```
+
+获取后的目录结构（dev-1.2.2分支）：
 
    ```text
    snappy/
@@ -76,7 +97,7 @@ Snappy是动态链接库，编译产物在`build`文件夹下。
       export LD_LIBRARY_PATH=./build:$LD_LIBRARY_PATH
       ```
 
-   2. 运行测试（4KB块大小，压缩10秒，解压1秒）。
+   2. 运行测试（4KB块大小，压缩20秒，解压20秒）。
 
       ```bash
       lzbench -esnappy -b4 -t20u20 silesia.tar
