@@ -33,16 +33,23 @@
 
 `master`分支仅包含文档和补丁文件，需先拉取Snappy原版源码，再应用补丁。
 
+1. 拉取Snappy原版源码（1.2.2分支）。
+
    ```bash
-   # 1. 拉取Snappy原版源码（1.2.2分支）
    git clone https://github.com/google/snappy.git
    cd snappy
    git checkout -b dev-1.2.2
-   
-   # 2. 获取优化补丁
+   ```
+
+2. 获取优化补丁。
+
+   ```bash
    git clone https://gitcode.com/boostkit/snappy.git snappy-patch -b master
-   
-   # 3. 应用补丁
+   ```
+
+3. 应用补丁。
+
+   ```bash
    git apply snappy-patch/snappy-1.2.2-opt.patch
    ```
 
@@ -193,14 +200,14 @@ Snappy是动态链接库，编译产物在`build`文件夹下。
 
      ```bash
      export LD_LIBRARY_PATH=./snappy-original/build:$LD_LIBRARY_PATH
-     lzbench -esnappy -b4 -t10u1 test_data.tar
+     lzbench -esnappy -b4 -t3u3 silesia.tar
      ```
 
    - 测试优化版
 
      ```bash
      export LD_LIBRARY_PATH=./snappy/build:$LD_LIBRARY_PATH
-     lzbench -esnappy -b4 -t20u20 silesia.tar
+     lzbench -esnappy -b4 -t3u3 silesia.tar
      ```
 
 ## 常见问题

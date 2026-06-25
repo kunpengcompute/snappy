@@ -76,7 +76,7 @@ Snappy is a dynamic link library, and its build outputs are located in the `buil
       export LD_LIBRARY_PATH=./build:$LD_LIBRARY_PATH
       ```
 
-   2. Run the benchmark (4 KB block size, compress for 10 seconds, decompress for 1 second).
+   2. Run the benchmark (4 KB block size, compress for 20 seconds, decompress for 1 second).
 
       ```bash
       lzbench -esnappy -b4 -t20u20 silesia.tar
@@ -172,14 +172,14 @@ You can use the lzbench tool to compare the performance between the original and
 
      ```bash
      export LD_LIBRARY_PATH=./snappy-original/build:$LD_LIBRARY_PATH
-     lzbench -esnappy -b4 -t10u1 test_data.tar
+     lzbench -esnappy -b4 -t3u3 silesia.tar
      ```
 
    - Benchmark the optimized version.
 
      ```bash
      export LD_LIBRARY_PATH=./snappy/build:$LD_LIBRARY_PATH
-     lzbench -esnappy -b4 -t20u20 silesia.tar
+     lzbench -esnappy -b4 -t3u3 silesia.tar
      ```
 
 ## FAQs
