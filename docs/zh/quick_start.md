@@ -205,4 +205,4 @@ Snappy是动态链接库，编译产物在`build`文件夹下。
 
 ## 常见问题
 
-常见问题解答请参见《[安装指南](installation_guide.md#常见问题)》中的"常见问题"章节，包括确认优化版本、编译找不到snappy.h、运行时找不到libsnappy.so等问题的解决方法。
+常见问题解答请参见《[安装指南](installation_guide.md#常见问题)》中的“常见问题”章节，包括确认优化版本、编译找不到snappy.h、运行时找不到libsnappy.so等问题的解决方法。
